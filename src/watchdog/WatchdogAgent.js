@@ -23,17 +23,18 @@ export class WatchdogAgent {
     this.logFile = path.join(projectRoot, '.ace-watchdog.log');
   }
 
-  log(message) {
+  log(message, { silent = false } = {}) {
     const timestamp = new Date().toISOString();
     const logMsg = `[${timestamp}] [Watchdog] ${message}\n`;
-    process.stdout.write(logMsg);
-    fs.appendFileSync(this.logFile, logMsg);
+    // Only print to stdout for important events, not routine scans
+    if (!silent) process.stdout.write(logMsg);
+    try { fs.appendFileSync(this.logFile, logMsg); } catch (_) {}
   }
 
   start() {
     if (this.isRunning) return;
     this.isRunning = true;
-    this.log('Starting background watchdog daemon...');
+    this.log('Watchdog daemon started.', { silent: true });
     this.scanAndHeal().catch(e => this.log(`Error in initial scan: ${e.message}`));
     this.timer = setInterval(() => {
       this.scanAndHeal().catch(e => this.log(`Error in scheduled scan: ${e.message}`));
@@ -48,23 +49,23 @@ export class WatchdogAgent {
   }
 
   async scanAndHeal() {
-    this.log('Initiating codebase health scan...');
+    this.log('Initiating codebase health scan...', { silent: true });
 
     const testIssues = await this.checkTests();
     if (testIssues) {
-      this.log(`Detected test failures. Initiating self-healing...`);
+      this.log(`[Watchdog] Detected test failures. Initiating self-healing...`);
       await this.heal(testIssues);
       return;
     }
 
     const lintIssues = await this.checkLinting();
     if (lintIssues) {
-      this.log(`Detected linting issues. Initiating self-healing...`);
+      this.log(`[Watchdog] Detected linting issues. Initiating self-healing...`);
       await this.heal(lintIssues);
       return;
     }
 
-    this.log('Scan complete. Codebase is healthy.');
+    this.log('Scan complete. Codebase is healthy.', { silent: true });
   }
 
   /**
@@ -94,7 +95,7 @@ export class WatchdogAgent {
           const failingFile = this._extractFailingFile(output);
           // If we can't identify a specific file, skip healing to avoid crashing on a directory
           if (!failingFile) {
-            this.log('Tests failed but could not identify a specific file to heal. Skipping auto-heal.');
+            this.log('Tests failed but could not identify a specific file to heal. Skipping auto-heal.', { silent: true });
             return null;
           }
           return {
