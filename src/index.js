@@ -16,6 +16,8 @@
  */
 import readline from 'readline';
 import chalk from 'chalk';
+import stringWidth from 'string-width';
+import stripAnsi from 'strip-ansi';
 import { marked } from 'marked';
 import { markedTerminal } from 'marked-terminal';
 import { select, input } from '@inquirer/prompts';
@@ -133,32 +135,10 @@ function printBanner(sessions) {
     return chalk.gray('\u2502') + left + chalk.gray('\u2502') + right + chalk.gray('\u2502');
   };
 
-  // 视觉宽度：中文及全角字符占 2 列，ASCII 占 1 列
-  const visualWidth = (s) => {
-    let w = 0;
-    for (const ch of s) {
-      const cp = ch.codePointAt(0);
-      // CJK Unified Ideographs, CJK Symbols, Fullwidth Forms, etc.
-      if ((cp >= 0x1100 && cp <= 0x115F) ||
-          (cp >= 0x2E80 && cp <= 0x303E) ||
-          (cp >= 0x3040 && cp <= 0xA4CF) ||
-          (cp >= 0xAC00 && cp <= 0xD7A3) ||
-          (cp >= 0xF900 && cp <= 0xFAFF) ||
-          (cp >= 0xFE10 && cp <= 0xFE1F) ||
-          (cp >= 0xFE30 && cp <= 0xFE6F) ||
-          (cp >= 0xFF01 && cp <= 0xFF60) ||
-          (cp >= 0xFFE0 && cp <= 0xFFE6) ||
-          (cp >= 0x1F300 && cp <= 0x1FBFF)) {
-        w += 2;
-      } else {
-        w += 1;
-      }
-    }
-    return w;
-  };
+  // 使用 string-width 准确计算终端显示宽度（中文/emoji/ASCII art 全部正确）
   const pad = (str, w) => {
-    const plain = str.replace(/\x1b\[[0-9;]*m/g, '');
-    const spaces = Math.max(0, w - visualWidth(plain));
+    const plain = stripAnsi(str);
+    const spaces = Math.max(0, w - stringWidth(plain));
     return str + ' '.repeat(spaces);
   };
 
@@ -182,7 +162,7 @@ function printBanner(sessions) {
     : '';
   console.log(line(pad(logoLine3, leftW), pad(r1, rightW + 1)));
 
-  const modelLine = '  ' + chalk.bold.yellow('\u2665 \u8282\u7ea6 90% Token') + chalk.gray(' \u00b7 \u652f\u6301 OpenAI \u53ca\u56fd\u4ea7\u6a21\u578b');
+  const modelLine = '  ' + chalk.bold.yellow('\u2665 90% Token') + chalk.gray(' \u00b7 OpenAI/\u56fd\u4ea7\u6a21\u578b');
   const r2 = recent[2]
     ? ' ' + chalk.gray(SessionManager.relativeTime(recent[2].updatedAt).padEnd(8)) + ' ' + chalk.white((recent[2].name || '').slice(0, 30))
     : '';
