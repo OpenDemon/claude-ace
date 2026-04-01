@@ -99,7 +99,7 @@ export class Agent {
    */
   async _streamTurn(onToken, onToolCall) {
     const stream = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'glm-5',
+      model: process.env.OPENAI_MODEL || 'glm-5-turbo',
       messages: this.messages,
       tools: this._toOpenAITools(),
       tool_choice: 'auto',

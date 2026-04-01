@@ -1,0 +1,32 @@
+{
+  "model": "gpt-4.1-mini",
+  "results": [
+    {
+      "task": "任务1：理解大文件架构",
+      "baseline": 2593,
+      "ace": 2037,
+      "saved": 556,
+      "pct": 21.4
+    },
+    {
+      "task": "任务2：查找特定函数逻辑",
+      "baseline": 2521,
+      "ace": 1106,
+      "saved": 1415,
+      "pct": 56.1
+    },
+    {
+      "task": "任务3：理解模块职责",
+      "baseline": 2497,
+      "ace": 849,
+      "saved": 1648,
+      "pct": 66
+    }
+  ],
+  "summary": {
+    "totalB": 7611,
+    "totalA": 3992,
+    "totalSaved": 3619,
+    "totalPct": "47.5"
+  }
+}

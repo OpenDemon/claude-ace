@@ -1,6 +1,6 @@
 {
   "name": "ace-coder",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Claude-ACE (Claude省钱版): 节约90% Token消耗，支持OpenAI及国产大模型接口的下一代AI编程助手",
   "type": "module",
   "main": "src/index.js",
@@ -16,6 +16,7 @@
   "license": "MIT",
   "dependencies": {
     "chalk": "^5.3.0",
+    "inquirer": "^13.3.2",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
     "openai": "^4.28.0",

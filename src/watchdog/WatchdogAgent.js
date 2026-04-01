@@ -45,7 +45,7 @@ export class WatchdogAgent {
     if (!this.isRunning) return;
     this.isRunning = false;
     if (this.timer) clearInterval(this.timer);
-    this.log('Watchdog daemon stopped.');
+    this.log('Watchdog daemon stopped.', { silent: true });
   }
 
   async scanAndHeal() {
@@ -53,14 +53,14 @@ export class WatchdogAgent {
 
     const testIssues = await this.checkTests();
     if (testIssues) {
-      this.log(`[Watchdog] Detected test failures. Initiating self-healing...`);
+      this.log(`Detected test failures. Initiating self-healing...`);
       await this.heal(testIssues);
       return;
     }
 
     const lintIssues = await this.checkLinting();
     if (lintIssues) {
-      this.log(`[Watchdog] Detected linting issues. Initiating self-healing...`);
+      this.log(`Detected linting issues. Initiating self-healing...`);
       await this.heal(lintIssues);
       return;
     }
@@ -82,7 +82,7 @@ export class WatchdogAgent {
         !testScript.includes('echo');
 
       if (isRealScript) {
-        this.log(`Running: npm test (script: "${testScript}")`);
+        this.log(`Running: npm test (script: "${testScript}")`, { silent: true });
         const result = spawnSync('npm', ['test'], {
           cwd: this.projectRoot,
           encoding: 'utf-8',
@@ -130,7 +130,7 @@ export class WatchdogAgent {
   async checkLinting() {
     const eslintBin = path.join(this.projectRoot, 'node_modules', '.bin', 'eslint');
     if (fs.existsSync(eslintBin)) {
-      this.log('Running: eslint src/');
+      this.log('Running: eslint src/', { silent: true });
       const result = spawnSync(eslintBin, ['src/', '--format', 'json', '--max-warnings', '0'], {
         cwd: this.projectRoot,
         encoding: 'utf-8',
