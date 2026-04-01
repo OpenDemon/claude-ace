@@ -1,6 +1,6 @@
 {
   "name": "ace-coder",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Claude-ACE (Claude省钱版): 节约90% Token消耗，支持OpenAI及国产大模型接口的下一代AI编程助手",
   "type": "module",
   "main": "src/index.js",
