@@ -1,6 +1,6 @@
 {
   "name": "ace-coder",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "ACE-Coder: AI Coding Assistant with Adaptive Context Engine (ACE). Reduces token consumption by 84%+ while maintaining full code understanding capability.",
   "type": "module",
   "main": "src/index.js",

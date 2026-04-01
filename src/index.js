@@ -4,9 +4,26 @@
  */
 import readline from 'readline';
 import chalk from 'chalk';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Agent } from './agent/Agent.js';
+import { WatchdogAgent } from './watchdog/WatchdogAgent.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 const agent = new Agent();
+
+// Start the background watchdog daemon (non-blocking)
+const watchdog = new WatchdogAgent(PROJECT_ROOT, { intervalMs: 60000 });
+watchdog.start();
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  watchdog.stop();
+  rl.close();
+  process.exit(0);
+});
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -22,7 +39,7 @@ console.log(chalk.gray('Type your coding question. Ctrl+C to exit.\n'));
 const prompt = () => {
   rl.question(chalk.green('You > '), async (input) => {
     if (!input.trim()) { prompt(); return; }
-    
+
     process.stdout.write(chalk.yellow('ACE > '));
     try {
       const { answer, stats } = await agent.chat(input);

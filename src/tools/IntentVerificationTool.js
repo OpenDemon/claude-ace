@@ -17,6 +17,7 @@ import OpenAI from 'openai';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { CrossProjectMemory } from '../memory/CrossProjectMemory.js';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -97,6 +98,21 @@ export class IntentVerificationTool {
     try { fs.unlinkSync(testFile); } catch (e) {}
 
     if (passed) {
+      // Auto-learn: if self-healing was needed, this was a hard problem worth remembering
+      if (fallbackTriggered) {
+        try {
+          const memory = new CrossProjectMemory();
+          const fileName = path.basename(targetFile);
+          memory.learnLesson(
+            [fileName, 'intent-verify', 'auto-healed'],
+            `Intent "${intent}" on ${fileName} required context fallback to pass tests`,
+            `Skeleton mode was insufficient; full source context was needed for self-healing. Consider using ExpandSymbol or forceFull=true when modifying ${fileName}.`,
+            { isGooglable: false, isCodebaseSpecific: true, isFromDebugging: true }
+          );
+          addLog(`[IntentVerify] Step 4/4: Lesson auto-saved to CrossProjectMemory (fallback was needed).`);
+        } catch (_) { /* memory write failure is non-fatal */ }
+      }
+
       return [
         `[IntentVerify] SUCCESS`,
         `Intent: "${intent}"`,
