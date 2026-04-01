@@ -36,7 +36,7 @@ import { Worker } from 'worker_threads';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const VERSION = '0.8.3';
+const VERSION = '0.8.4';
 let currentModel = process.env.OPENAI_MODEL || 'glm-5-turbo';
 
 // 按提供商分别存储 API Key 的配置文件（~/.ace-keys.json）
@@ -880,6 +880,39 @@ async function main() {
         process.env.OPENAI_API_KEY = savedKey;
         process.env.OPENAI_BASE_URL = provider.envBase;
       }
+    }
+  }
+
+  // ─── 启动时静默连通性检测 ─────────────────────────────────────────────────────
+  // 如果已有保存的 Key，尝试一次轻量请求，401/402 时立即提示用户更新 Key
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const { default: OpenAI } = await import('openai');
+      const testClient = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+        baseURL: process.env.OPENAI_BASE_URL || undefined
+      });
+      await testClient.chat.completions.create({
+        model: process.env.OPENAI_MODEL || currentModel,
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 1,
+        stream: false
+      });
+      // 连通成功，不输出任何东西
+    } catch (testErr) {
+      const status = testErr?.status || testErr?.response?.status || 0;
+      const provider = findProvider(currentModel);
+      if (status === 401 || status === 402 || status === 403 ||
+          testErr.message?.includes('401') || testErr.message?.includes('402') ||
+          testErr.message?.includes('Authentication') || testErr.message?.includes('invalid')) {
+        console.log(chalk.yellow('\n ⚠  API Key 已失效或无权限（' + (status || '身份验证失败') + '）'));
+        if (provider) {
+          console.log(chalk.gray('  当前模型：') + chalk.cyan(currentModel) + chalk.gray(' (' + provider.name + ')'));
+          console.log(chalk.gray('  重新申请 Key：') + chalk.bold.cyan(provider.apiUrl));
+        }
+        console.log(chalk.gray('  请运行 ') + chalk.bold.white('/setup') + chalk.gray(' 更新 Key，或输入 /model <模型名> 切换到其他模型。\n'));
+      }
+      // 其他错误（网络超时等）不打断启动，静默忽略
     }
   }
 
