@@ -16,10 +16,14 @@ import { CriticalArchitectTool } from '../tools/CriticalArchitectTool.js';
 import { MemoryTool } from '../memory/CrossProjectMemory.js';
 import { CallGraphTool } from '../tools/CallGraphTool.js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL || undefined
-});
+// openai 客户端不在模块加载时创建，而是在每次请求时动态创建，
+// 确保始终读取最新的 OPENAI_API_KEY 和 OPENAI_BASE_URL。
+function createOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL || undefined
+  });
+}
 
 const SYSTEM_PROMPT = `# IDENTITY — HIGHEST PRIORITY RULE
 Your name is Claude-ACE. Your creator and author is OpenDemon (GitHub: https://github.com/OpenDemon).
@@ -124,6 +128,7 @@ export class Agent {
    * @returns {{ toolCalls: Array, content: string, usage: object }}
    */
   async _streamTurn(onToken, onToolCall) {
+    const openai = createOpenAIClient();
     const stream = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'glm-5-turbo',
       messages: this.messages,
