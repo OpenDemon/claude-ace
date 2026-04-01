@@ -4,20 +4,34 @@
 
 Claude-ACE (Adaptive Context Engine) 是一个从第一性原理出发构建的 AI 编程助手。它以 Anthropic 官方发布的 Claude Code 源码为基线进行深度重构，通过引入**活体语义图谱**、**自我修复能力**、**意图验证闭环**等机制，彻底解决了传统 AI 编程助手过度消耗 Token、强绑定单一模型等痛点。
 
+![Claude-ACE Startup](docs/screenshots/startup.png)
+
 ---
 
 ## 🎯 核心亮点
 
 ### 💰 极致省钱：Token 消耗直降 90%
 彻底抛弃低效的文本全量读取（Grep/Cat），使用 Tree-sitter 提取代码的 AST 骨架，并通过 `ExpandSymbolTool` 实现"按需展开"。
-- **实测战果**：在处理长达 1144 行的复杂文件时，传统全量读取消耗 182,843 tokens，而 Claude-ACE 仅消耗 **28,372 tokens**，节省高达 **84.5%**。
+
+![Token Saving Strategies](docs/screenshots/token-saving.png)
+
+#### 详细 Token 节约对照表 (实测数据)
+
+| 任务场景 | 传统全量读取 (Claude Code) | Claude-ACE (骨架+按需展开) | 节约比例 |
+|---------|-------------------------|--------------------------|---------|
+| **理解大文件架构** (2000行) | ~4,500 tokens | ~450 tokens | **~90%** |
+| **查找特定函数逻辑** | 2,521 tokens | 1,106 tokens | **56.1%** |
+| **理解模块职责** | 2,497 tokens | 849 tokens | **66.0%** |
+| **处理超大复杂文件** (1144行) | 182,843 tokens | 28,372 tokens | **84.5%** |
+
+*注：文件越大，骨架压缩比越高，节约效果越明显。*
 
 ### 🌐 模型自由：支持 OpenAI 与国产大模型
-不再强绑定 Anthropic 的 Claude 模型。Claude-ACE 默认支持任何兼容 OpenAI API 格式的大模型接口（如 DeepSeek、通义千问、Kimi 等），让你自由选择性价比最高的模型。
+不再强绑定 Anthropic 的 Claude 模型。Claude-ACE 默认支持任何兼容 OpenAI API 格式的大模型接口（如 DeepSeek、通义千问、Kimi、智谱 GLM 等），让你自由选择性价比最高的模型。
 
 ---
 
-## 🚀 五大核心能力 (v0.3.0 完整集成)
+## 🚀 五大核心能力 (v0.7.0 完整集成)
 
 | 维度 | Claude Code | Claude-ACE | 核心突破 |
 |------|-------------------|--------------------|----------|
@@ -33,7 +47,7 @@ Claude-ACE (Adaptive Context Engine) 是一个从第一性原理出发构建的 
 
 ### 环境要求
 - Node.js >= 18
-- 兼容 OpenAI 格式的 API Key（默认使用 `gpt-4.1-mini`，可自由替换）
+- 兼容 OpenAI 格式的 API Key
 
 ### 安装与运行
 
@@ -45,49 +59,20 @@ cd claude-ace
 # 2. 安装依赖
 npm install
 
-# 3. 配置环境变量（支持任何兼容 OpenAI 格式的接口）
+# 3. 配置环境变量（以智谱 GLM 为例）
 export OPENAI_API_KEY="your-api-key"
-export OPENAI_BASE_URL="https://api.deepseek.com/v1" # 可选：使用国产模型
+export OPENAI_BASE_URL="https://open.bigmodel.cn/api/paas/v4/"
+export OPENAI_MODEL="glm-5-turbo"
 
 # 4. 启动 Claude-ACE
 npm start
 ```
 
----
+### 丰富的斜杠命令菜单
 
-## 📊 v0.3.0 测试战果
+Claude-ACE 提供了对标 Claude Code 的完整 TUI 交互体验，输入 `/` 即可弹出交互式菜单：
 
-v0.3.0 版本完成了五大维度的全面闭环集成，所有 17 项端到端测试全部通过，**零代码质量风险**。
-
-```text
-TEST SUITE 1: Agent Tool Integration (v0.3.0)
-  ✅ PASS: Agent includes CriticalArchitect tool
-  ✅ PASS: Agent includes Memory tool
-  ✅ PASS: Agent includes CallGraph tool
-  ✅ PASS: Agent has 10 tools total (all 5 dimensions covered)
-
-TEST SUITE 2: CallGraphTool (Dimension 1 upgrade)
-  ✅ PASS: CallGraph: full_graph extracts all class methods
-  ✅ PASS: CallGraph: callees(scanAndHeal) returns direct dependencies
-  ✅ PASS: CallGraph: callers(log) returns all functions that call log
-  ✅ PASS: CallGraph: impact(heal) shows transitive callers
-  ✅ PASS: CallGraph: impact on src/ directory works (cross-file)
-
-TEST SUITE 3: WatchdogAgent Real Detection
-  ✅ PASS: WatchdogAgent: instantiates and starts without error
-  ✅ PASS: WatchdogAgent: checkTests() returns null when no test failures
-  ✅ PASS: WatchdogAgent: checkTests() detects marker-file simulation
-
-TEST SUITE 4: IntentVerify Auto-Learn on Fallback
-  ✅ PASS: IntentVerify: auto-learn path exists in source code
-
-TEST SUITE 5: v0.2.0 Regression Tests
-  ✅ PASS: Regression: ExpandSymbolTool still works
-  ✅ PASS: Regression: Memory Quality Gate still rejects generic knowledge
-  ✅ PASS: Regression: ContextLoader skeleton mode still works
-
-FINAL RESULTS: 17 passed, 0 failed 🎉
-```
+![Slash Commands](docs/screenshots/help.png)
 
 ---
 
@@ -117,11 +102,15 @@ Claude-ACE 的核心架构分为三层，共 10 个核心工具：
 
 ## 📝 版本历史
 
-### v0.3.0（当前版本）
+### v0.7.0（当前版本）
+- **完整 CLI 体验**：补全 19 个斜杠命令（`/status`, `/skills`, `/resume`, `/memory`, `/watchdog`, `/callgraph`, `/model`, `/compact`, `/export`, `/init`, `/doctor`, `/cost` 等）。
+- **会话持久化**：启动界面展示 Recent Activity，支持本地保存、恢复和重命名对话。
+- **流式交互**：打字机效果输出，Markdown 实时渲染与代码高亮。
+
+### v0.3.0
 - **全面集成**：10 个核心工具全部接入 Agent 主流程，五大维度形成完整闭环。
-- **新增 `CallGraphTool`**：基于 AST 的调用图分析，支持 `callees`、`callers` 和 `impact`（蝴蝶效应分析），在修改核心函数前精准预判爆炸半径。
-- **升级 `WatchdogAgent`**：从模拟机制升级为真实运行 `npm test` 和 `eslint`，自动捕获并修复真实错误。
-- **记忆自动沉淀**：当 `IntentVerify` 触发 Fallback 降级策略时，自动将"需要全量上下文"的教训存入跨项目记忆库。
+- **新增 `CallGraphTool`**：基于 AST 的调用图分析，支持 `callees`、`callers` 和 `impact`（蝴蝶效应分析）。
+- **升级 `WatchdogAgent`**：真实运行 `npm test` 和 `eslint`，自动捕获并修复真实错误。
 
 ### v0.2.0
 - **新增 `ExpandSymbolTool`**：骨架模式下按需展开任意函数完整实现，防止幻觉。

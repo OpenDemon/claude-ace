@@ -159,7 +159,7 @@ function printBanner(sessions) {
     : '';
   console.log(line(pad(logoLine3, leftW), pad(r1, rightW + 1)));
 
-  const modelLine = '  ' + chalk.gray(currentModel + ' \u00b7 API Usage Billing');
+  const modelLine = '  ' + chalk.bold.yellow('\u2665 \u8282\u7ea6 90% Token') + chalk.gray(' \u00b7 \u652f\u6301 OpenAI \u53ca\u56fd\u4ea7\u6a21\u578b');
   const r2 = recent[2]
     ? ' ' + chalk.gray(SessionManager.relativeTime(recent[2].updatedAt).padEnd(8)) + ' ' + chalk.white((recent[2].name || '').slice(0, 30))
     : '';
