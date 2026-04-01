@@ -133,9 +133,32 @@ function printBanner(sessions) {
     return chalk.gray('\u2502') + left + chalk.gray('\u2502') + right + chalk.gray('\u2502');
   };
 
+  // 视觉宽度：中文及全角字符占 2 列，ASCII 占 1 列
+  const visualWidth = (s) => {
+    let w = 0;
+    for (const ch of s) {
+      const cp = ch.codePointAt(0);
+      // CJK Unified Ideographs, CJK Symbols, Fullwidth Forms, etc.
+      if ((cp >= 0x1100 && cp <= 0x115F) ||
+          (cp >= 0x2E80 && cp <= 0x303E) ||
+          (cp >= 0x3040 && cp <= 0xA4CF) ||
+          (cp >= 0xAC00 && cp <= 0xD7A3) ||
+          (cp >= 0xF900 && cp <= 0xFAFF) ||
+          (cp >= 0xFE10 && cp <= 0xFE1F) ||
+          (cp >= 0xFE30 && cp <= 0xFE6F) ||
+          (cp >= 0xFF01 && cp <= 0xFF60) ||
+          (cp >= 0xFFE0 && cp <= 0xFFE6) ||
+          (cp >= 0x1F300 && cp <= 0x1FBFF)) {
+        w += 2;
+      } else {
+        w += 1;
+      }
+    }
+    return w;
+  };
   const pad = (str, w) => {
     const plain = str.replace(/\x1b\[[0-9;]*m/g, '');
-    const spaces = Math.max(0, w - plain.length);
+    const spaces = Math.max(0, w - visualWidth(plain));
     return str + ' '.repeat(spaces);
   };
 
