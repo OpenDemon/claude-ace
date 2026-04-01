@@ -78,9 +78,9 @@ function formatArgHint(name, args) {
 function printBanner() {
   const cwd = process.cwd();
   console.log('');
-  console.log(chalk.bold.cyan(' \u258c\u2580\u2588\u2588\u2588\u2584\u2590\u2588   ') + chalk.bold.white('Claude-ACE') + chalk.gray(' v' + VERSION));
-  console.log(chalk.bold.cyan('\u2580\u2584\u2588\u2588\u2588\u2588\u2588\u2580\u2588\u2580  ') + chalk.gray('GLM-5-Turbo \u00b7 \u9f99\u867e\u5957\u9910'));
-  console.log(chalk.bold.cyan('  \u2598\u2598 \u259d\u259d    ') + chalk.gray(cwd));
+  console.log(chalk.bold.cyan('\u258c\u2580\u2588\u2588\u2588\u2584\u2590\u2588   ') + chalk.bold.white('Claude-ACE') + chalk.gray(' v' + VERSION));
+  console.log(chalk.bold.cyan('\u2580\u2584\u2588\u2588\u2588\u2588\u2588\u2580\u2588\u2580  ') + chalk.gray('GitHub: OpenDemon'));
+  console.log(chalk.bold.cyan('  \u2598\u2598 \u259d\u259d    ') + chalk.gray(cwd));;
   console.log('');
 }
 
