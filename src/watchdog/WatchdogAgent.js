@@ -92,9 +92,14 @@ export class WatchdogAgent {
         if (result.status !== 0) {
           const output = (result.stdout || '') + (result.stderr || '');
           const failingFile = this._extractFailingFile(output);
+          // If we can't identify a specific file, skip healing to avoid crashing on a directory
+          if (!failingFile) {
+            this.log('Tests failed but could not identify a specific file to heal. Skipping auto-heal.');
+            return null;
+          }
           return {
             type: 'test_failure',
-            file: failingFile || path.join(this.projectRoot, 'src'),
+            file: failingFile,
             error: output.substring(0, 2000),
             intent: `Fix the failing test. Error output:\n${output.substring(0, 1000)}`
           };
@@ -168,11 +173,18 @@ export class WatchdogAgent {
 
   /** Extract the first failing source file from test runner output. */
   _extractFailingFile(output) {
+    // Windows absolute path: C:\Users\...\file.js or C:/Users/.../file.js
+    const winMatch = output.match(/([A-Za-z]:[\\/][\w\\\/\-\.]+\.(?:js|ts|jsx|tsx))/);
+    if (winMatch) {
+      const candidate = winMatch[1];
+      // Only return if it's actually a file, not a directory
+      try { if (fs.statSync(candidate).isFile()) return candidate; } catch (_) {}
+    }
+    // Jest output: FAIL src/tools/Foo.js
     const jestMatch = output.match(/FAIL\s+([\w/.-]+\.(?:js|ts))/);
     if (jestMatch) return path.join(this.projectRoot, jestMatch[1]);
-    const nodeMatch = output.match(/not ok.*?(src\/[\w/.-]+\.(?:js|ts))/);
-    if (nodeMatch) return path.join(this.projectRoot, nodeMatch[1]);
-    const genericMatch = output.match(/(src\/[\w/.-]+\.(?:js|ts))/);
+    // Node tap / generic: src/tools/Foo.js
+    const genericMatch = output.match(/(src[\\/][\w\\/\-\.]+\.(?:js|ts))/);
     if (genericMatch) return path.join(this.projectRoot, genericMatch[1]);
     return null;
   }
