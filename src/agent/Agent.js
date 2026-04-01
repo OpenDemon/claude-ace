@@ -222,7 +222,7 @@ export class Agent {
 
     this.messages.push({ role: 'user', content: userMessage });
 
-    for (let step = 0; step < 20; step++) {
+    for (let step = 0; step < 100; step++) {
       // 检查是否已被取消
       if (signal?.aborted) {
         return { answer: '[Agent] 已取消', stats: this.stats, aborted: true };
@@ -288,7 +288,7 @@ export class Agent {
       }
     }
 
-    return { answer: '[Agent] 已达到最大执行步数（20步），请简化任务或分步执行。', stats: this.stats };
+    return { answer: '[Agent] 已达到最大执行步数（100步），请简化任务或分步执行。', stats: this.stats };
   }
 
   resetStats() {
