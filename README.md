@@ -27,7 +27,20 @@ Claude-ACE (Adaptive Context Engine) 是一个从第一性原理出发构建的 
 *注：文件越大，骨架压缩比越高，节约效果越明显。*
 
 ### 🌐 模型自由：支持 OpenAI 与国产大模型
-不再强绑定 Anthropic 的 Claude 模型。Claude-ACE 默认支持任何兼容 OpenAI API 格式的大模型接口（如 DeepSeek、通义千问、Kimi、智谱 GLM 等），让你自由选择性价比最高的模型。
+不再强绑定 Anthropic 的 Claude 模型。Claude-ACE 默认支持任何兼容 OpenAI API 格式的大模型接口，让你自由选择性价比最高的模型。
+
+#### 支持的模型提供商及配置参考
+
+| 提供商 | 申请地址 | 环境变量 `OPENAI_BASE_URL` | 推荐模型 (`OPENAI_MODEL`) |
+|--------|----------|---------------------------|---------------------------|
+| **智谱 GLM** | [申请 API Key](https://bigmodel.cn/) | `https://open.bigmodel.cn/api/paas/v4/` | `glm-5-turbo` (推荐) / `glm-4-flash` (免费) |
+| **通义千问** | [申请 API Key](https://bailian.console.aliyun.com/) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-turbo` / `qwen-max` / `qwen-coder-plus` |
+| **DeepSeek** | [申请 API Key](https://platform.deepseek.com/) | `https://api.deepseek.com/v1` | `deepseek-chat` / `deepseek-reasoner` |
+| **MiniMax** | [申请 API Key](https://platform.minimaxi.com/) | `https://api.minimax.chat/v1` | `MiniMax-Text-01` / `abab6.5s-chat` |
+| **Kimi** | [申请 API Key](https://platform.moonshot.cn/) | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` / `moonshot-v1-32k` |
+| **OpenAI** | [申请 API Key](https://platform.openai.com/) | `https://api.openai.com/v1` | `gpt-4o-mini` / `gpt-4o` |
+
+*提示：在 Claude-ACE 运行中，你可以随时使用 `/model <模型名称>` 命令无缝切换模型，无需重启。*
 
 ---
 
@@ -102,7 +115,13 @@ Claude-ACE 的核心架构分为三层，共 10 个核心工具：
 
 ## 📝 版本历史
 
-### v0.7.0（当前版本）
+### v0.8.0（当前版本）
+- **全面扩展国产模型支持**：内置通义千问、DeepSeek、MiniMax、Kimi 等主流国产模型配置。
+- **智能环境诊断**：`/doctor` 命令自动识别当前模型提供商，并提供针对性的配置检查与修复建议。
+- **动态费用估算**：`/cost` 命令支持所有新接入模型的价格计算。
+- **分组模型列表**：`/model` 命令按提供商分组展示可用模型及价格信息。
+
+### v0.7.0
 - **完整 CLI 体验**：补全 19 个斜杠命令（`/status`, `/skills`, `/resume`, `/memory`, `/watchdog`, `/callgraph`, `/model`, `/compact`, `/export`, `/init`, `/doctor`, `/cost` 等）。
 - **会话持久化**：启动界面展示 Recent Activity，支持本地保存、恢复和重命名对话。
 - **流式交互**：打字机效果输出，Markdown 实时渲染与代码高亮。

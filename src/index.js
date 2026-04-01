@@ -2,6 +2,7 @@
  * index.js — Claude-ACE Interactive CLI
  * Author: OpenDemon
  *
+ * v0.8.0: 扩展国产模型支持（通义千问、DeepSeek、MiniMax、Kimi）
  * v0.7.0: Complete slash command set
  *   /help /clear /stats /status /skills /resume /rename /rewind /release-notes /exit
  *   /memory  — view/delete cross-project memory entries
@@ -34,10 +35,19 @@ import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const VERSION = '0.7.0';
+const VERSION = '0.8.0';
 let currentModel = process.env.OPENAI_MODEL || 'glm-5-turbo';
 
 const RELEASE_NOTES = `
+## v0.8.0
+- 新增通义千问（Qwen）模型支持：qwen-turbo、qwen-plus、qwen-max
+- 新增 DeepSeek 模型支持：deepseek-chat、deepseek-reasoner
+- 新增 MiniMax 模型支持：MiniMax-Text-01、abab6.5s-chat
+- 新增 Kimi 模型支持：moonshot-v1-8k、moonshot-v1-32k、moonshot-v1-128k
+- /model 命令展示分组模型列表，包含 API 申请地址
+- /doctor 命令自动识别当前模型提供商并显示配置帮助
+- /cost 命令支持全部新模型的价格估算
+
 ## v0.7.0
 - 新增 /memory  — 查看、删除跨项目记忆库条目
 - 新增 /watchdog — 查看守护进程状态、暂停/恢复、立即扫描
@@ -264,28 +274,21 @@ function printStats(stats) {
 }
 
 function estimateCost(stats) {
-  // GLM-5-Turbo pricing (approximate): 0.05 yuan per 1000 tokens input, 0.05 yuan per 1000 tokens output
-  // For reference only — actual pricing may differ
-  const PRICING = {
-    'glm-5-turbo':  { input: 0.05,  output: 0.05  },
-    'glm-4-flash':  { input: 0.0,   output: 0.0   },
-    'glm-4-plus':   { input: 0.1,   output: 0.1   },
-    'glm-5':        { input: 0.1,   output: 0.1   },
-    'gpt-4.1-mini': { input: 0.04,  output: 0.12  },
-    'gpt-4o':       { input: 0.25,  output: 1.0   },
-  };
-  const p = PRICING[currentModel] || { input: 0.05, output: 0.05 };
+  // 价格表在 MODEL_PROVIDERS 中定义，此处动态查找
+  // 价格单位：元/1000 tokens，仅供参考
+  const p = findModelPrice(currentModel);
+  const provider = findProvider(currentModel);
   const inputCost  = (stats.inputTokens  / 1000) * p.input;
   const outputCost = (stats.outputTokens / 1000) * p.output;
   const total = inputCost + outputCost;
   console.log('');
-  console.log(chalk.bold.white(' \u8d39\u7528\u4f30\u7b97\uff08\u4ec5\u4f9b\u53c2\u8003\uff09\uff1a'));
-  console.log('  \u6a21\u578b\uff1a    ' + chalk.cyan(currentModel));
-  console.log('  \u8f93\u5165\uff1a    ' + chalk.yellow(stats.inputTokens.toLocaleString()) + ' tokens \u00d7 \u00a5' + p.input + '/K = ' + chalk.yellow('\u00a5' + inputCost.toFixed(4)));
-  console.log('  \u8f93\u51fa\uff1a    ' + chalk.yellow(stats.outputTokens.toLocaleString()) + ' tokens \u00d7 \u00a5' + p.output + '/K = ' + chalk.yellow('\u00a5' + outputCost.toFixed(4)));
-  console.log('  \u5408\u8ba1\uff1a    ' + chalk.bold.yellow('\u00a5' + total.toFixed(4)));
+  console.log(chalk.bold.white(' 费用估算（仅供参考）：'));
+  console.log('  模型：    ' + chalk.cyan(currentModel) + (provider ? chalk.gray(' (' + provider.name + ')') : ''));
+  console.log('  输入：    ' + chalk.yellow(stats.inputTokens.toLocaleString()) + ' tokens × ¥' + p.input + '/K = ' + chalk.yellow('¥' + inputCost.toFixed(4)));
+  console.log('  输出：    ' + chalk.yellow(stats.outputTokens.toLocaleString()) + ' tokens × ¥' + p.output + '/K = ' + chalk.yellow('¥' + outputCost.toFixed(4)));
+  console.log('  合计：    ' + chalk.bold.yellow('¥' + total.toFixed(4)));
   if (p.input === 0 && p.output === 0) {
-    console.log('  ' + chalk.gray('(glm-4-flash \u514d\u8d39\u6a21\u578b\uff0c\u8d39\u7528\u4e3a\u96f6)'));
+    console.log('  ' + chalk.gray('(' + currentModel + ' 免费模型，费用为零)'));
   }
   console.log('');
 }
@@ -319,44 +322,81 @@ async function runDoctor() {
 
   // Base URL
   const baseUrl = process.env.OPENAI_BASE_URL || '(default)';
-  console.log('  Base URL\uff1a  ' + chalk.gray(baseUrl));
+  console.log('  Base URL：  ' + chalk.gray(baseUrl));
 
-  // Model
-  console.log('  \u6a21\u578b\uff1a     ' + chalk.cyan(currentModel));
+  // Model + 识别提供商
+  const provider = findProvider(currentModel);
+  const providerLabel = provider ? chalk.gray(' (' + provider.name + ')') : chalk.gray(' (自定义)');
+  console.log('  模型：     ' + chalk.cyan(currentModel) + providerLabel);
+
+  // 检查 Base URL 是否与模型匹配
+  if (provider && process.env.OPENAI_BASE_URL) {
+    const setBase = process.env.OPENAI_BASE_URL.replace(/\/$/, '');
+    const expectBase = provider.envBase.replace(/\/$/, '');
+    if (setBase !== expectBase) {
+      console.log('  ' + chalk.yellow('⚠ Base URL 与模型提供商不匹配'));
+      console.log('    ' + chalk.gray('建议设置：') + chalk.cyan(provider.envBase));
+    } else {
+      console.log('  ' + chalk.green('✓ Base URL 与模型提供商匹配'));
+    }
+  } else if (provider && !process.env.OPENAI_BASE_URL) {
+    console.log('  ' + chalk.yellow('⚠ 未设置 OPENAI_BASE_URL，建议设置为：') + chalk.cyan(provider.envBase));
+  }
 
   // tree-sitter
   try {
     const p = path.join(PROJECT_ROOT, 'node_modules', 'tree-sitter');
     const ok = fs.existsSync(p);
-    console.log('  tree-sitter: ' + (ok ? chalk.green('\u2713 \u5df2\u5b89\u88c5') : chalk.red('\u2717 \u672a\u5b89\u88c5 — \u8fd0\u884c npm install')));
-  } catch (_) { console.log('  tree-sitter: ' + chalk.red('\u2717 \u68c0\u67e5\u5931\u8d25')); }
+    console.log('  tree-sitter: ' + (ok ? chalk.green('✓ 已安装') : chalk.red('✗ 未安装 — 运行 npm install')));
+  } catch (_) { console.log('  tree-sitter: ' + chalk.red('✗ 检查失败')); }
 
   // openai package
   try {
     const p = path.join(PROJECT_ROOT, 'node_modules', 'openai');
     const ok = fs.existsSync(p);
-    console.log('  openai\uff1a     ' + (ok ? chalk.green('\u2713 \u5df2\u5b89\u88c5') : chalk.red('\u2717 \u672a\u5b89\u88c5 — \u8fd0\u884c npm install')));
+    console.log('  openai：     ' + (ok ? chalk.green('✓ 已安装') : chalk.red('✗ 未安装 — 运行 npm install')));
   } catch (_) {}
 
   // memory dir
   const memDir = path.join(os.homedir(), '.ace-memory');
   const memExists = fs.existsSync(memDir);
-  console.log('  \u8bb0\u5fc6\u76ee\u5f55\uff1a  ' + (memExists ? chalk.green('\u2713 ' + memDir) : chalk.gray('\u25cb \u5c1a\u672a\u521b\u5efa\uff08\u9996\u6b21\u4f7f\u7528 Memory \u5de5\u5177\u540e\u81ea\u52a8\u521b\u5efa\uff09')));
+  console.log('  记忆目录：  ' + (memExists ? chalk.green('✓ ' + memDir) : chalk.gray('○ 尚未创建（首次使用 Memory 工具后自动创建）')));
 
   // session dir
   const sessDir = path.join(os.homedir(), '.claude-ace', 'sessions');
   const sessExists = fs.existsSync(sessDir);
-  console.log('  \u4f1a\u8bdd\u76ee\u5f55\uff1a  ' + (sessExists ? chalk.green('\u2713 ' + sessDir) : chalk.gray('\u25cb \u5c1a\u672a\u521b\u5efa')));
+  console.log('  会话目录：  ' + (sessExists ? chalk.green('✓ ' + sessDir) : chalk.gray('○ 尚未创建')));
 
   console.log('');
+
+  // 配置帮助
   if (!hasKey) {
-    console.log(chalk.yellow('  \u5feb\u901f\u4fee\u590d\uff1a'));
+    console.log(chalk.yellow('  快速修复：'));
     console.log(chalk.gray('  Windows PowerShell:'));
     console.log(chalk.cyan('    $env:OPENAI_API_KEY="your-key"'));
     console.log(chalk.gray('  Mac/Linux:'));
     console.log(chalk.cyan('    export OPENAI_API_KEY="your-key"'));
     console.log('');
   }
+
+  // 各提供商配置快速参考
+  console.log(chalk.bold.white('  各提供商配置参考：'));
+  const providerGuides = [
+    { name: '智谱 GLM',        key: 'open.bigmodel.cn',   base: 'https://open.bigmodel.cn/api/paas/v4/',          model: 'glm-5-turbo' },
+    { name: '通义千问 (Qwen)',  key: 'dashscope',        base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-turbo' },
+    { name: 'DeepSeek',          key: 'deepseek',         base: 'https://api.deepseek.com/v1',                    model: 'deepseek-chat' },
+    { name: 'MiniMax',           key: 'minimax',          base: 'https://api.minimax.chat/v1',                    model: 'MiniMax-Text-01' },
+    { name: 'Kimi (Moonshot)',   key: 'moonshot',         base: 'https://api.moonshot.cn/v1',                     model: 'moonshot-v1-8k' },
+    { name: 'OpenAI',            key: 'openai',           base: 'https://api.openai.com/v1',                      model: 'gpt-4o-mini' },
+  ];
+  for (const g of providerGuides) {
+    const isCurrent = provider && provider.name === g.name;
+    const prefix = isCurrent ? chalk.green('  ▶ ') : chalk.gray('    ');
+    console.log(prefix + chalk.bold(g.name));
+    console.log(chalk.gray('      OPENAI_BASE_URL=') + chalk.cyan(g.base));
+    console.log(chalk.gray('      OPENAI_MODEL=') + chalk.cyan(g.model));
+  }
+  console.log('');
 }
 
 function printSkills() {
@@ -504,31 +544,117 @@ async function handleCallGraph(args) {
   }
 }
 
+// 模型提供商配置表
+const MODEL_PROVIDERS = [
+  {
+    name: '智谱 GLM',
+    envBase: 'https://open.bigmodel.cn/api/paas/v4/',
+    apiUrl: 'https://open.bigmodel.cn/',
+    models: [
+      { id: 'glm-5-turbo',  desc: '推荐，龙虾套餐支持',   price: { input: 0.05,  output: 0.05  } },
+      { id: 'glm-4-flash',  desc: '免费，适合日常任务',   price: { input: 0.0,   output: 0.0   } },
+      { id: 'glm-4-plus',   desc: '付费，能力更强',         price: { input: 0.1,   output: 0.1   } },
+      { id: 'glm-5',        desc: '付费，最强能力',         price: { input: 0.1,   output: 0.1   } },
+    ],
+  },
+  {
+    name: '通义千问 (Qwen)',
+    envBase: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    apiUrl: 'https://bailian.console.aliyun.com/',
+    models: [
+      { id: 'qwen-turbo',   desc: '快速，适合日常任务',   price: { input: 0.02,  output: 0.06  } },
+      { id: 'qwen-plus',    desc: '平衡性能与价格',       price: { input: 0.04,  output: 0.12  } },
+      { id: 'qwen-max',     desc: '最强能力',               price: { input: 0.04,  output: 0.12  } },
+      { id: 'qwen-coder-plus', desc: '代码优化版',            price: { input: 0.035, output: 0.105 } },
+    ],
+  },
+  {
+    name: 'DeepSeek',
+    envBase: 'https://api.deepseek.com/v1',
+    apiUrl: 'https://platform.deepseek.com/',
+    models: [
+      { id: 'deepseek-chat',      desc: '通用对话，性价比极高',   price: { input: 0.014, output: 0.028 } },
+      { id: 'deepseek-reasoner',  desc: '深度推理（R1）',         price: { input: 0.04,  output: 0.16  } },
+    ],
+  },
+  {
+    name: 'MiniMax',
+    envBase: 'https://api.minimax.chat/v1',
+    apiUrl: 'https://platform.minimaxi.com/',
+    models: [
+      { id: 'MiniMax-Text-01',  desc: '旗舰模型，长文本处理',   price: { input: 0.1,   output: 0.1   } },
+      { id: 'abab6.5s-chat',   desc: '快速响应，适合对话',   price: { input: 0.01,  output: 0.01  } },
+    ],
+  },
+  {
+    name: 'Kimi (Moonshot)',
+    envBase: 'https://api.moonshot.cn/v1',
+    apiUrl: 'https://platform.moonshot.cn/',
+    models: [
+      { id: 'moonshot-v1-8k',    desc: '8K 上下文，速度快',       price: { input: 0.012, output: 0.012 } },
+      { id: 'moonshot-v1-32k',   desc: '32K 上下文，平衡',         price: { input: 0.024, output: 0.024 } },
+      { id: 'moonshot-v1-128k',  desc: '128K 超长上下文',           price: { input: 0.06,  output: 0.06  } },
+    ],
+  },
+  {
+    name: 'OpenAI',
+    envBase: 'https://api.openai.com/v1',
+    apiUrl: 'https://platform.openai.com/',
+    models: [
+      { id: 'gpt-4.1-mini',  desc: '小模型，性价比高',         price: { input: 0.04,  output: 0.12  } },
+      { id: 'gpt-4o',        desc: '旗舰多模态模型',           price: { input: 0.25,  output: 1.0   } },
+      { id: 'gpt-4o-mini',   desc: '小型多模态，性价比高',   price: { input: 0.015, output: 0.06  } },
+    ],
+  },
+];
+
+// 根据模型 ID 查找提供商
+function findProvider(modelId) {
+  for (const p of MODEL_PROVIDERS) {
+    if (p.models.find(m => m.id === modelId)) return p;
+  }
+  return null;
+}
+
+// 根据模型 ID 查找价格
+function findModelPrice(modelId) {
+  for (const p of MODEL_PROVIDERS) {
+    const m = p.models.find(m => m.id === modelId);
+    if (m) return m.price;
+  }
+  return { input: 0.05, output: 0.05 };
+}
+
 async function handleModel(args, rl) {
   const newModel = args.trim();
   if (!newModel) {
     console.log('');
-    console.log(chalk.bold.white(' \u5f53\u524d\u6a21\u578b\uff1a') + chalk.cyan(currentModel));
-    console.log(chalk.gray('  \u5207\u6362\uff1a/model <\u6a21\u578b\u540d\u79f0>'));
-    console.log(chalk.gray('  \u793a\u4f8b\uff1a/model glm-4-flash'));
+    console.log(chalk.bold.white(' 当前模型：') + chalk.cyan(currentModel));
+    console.log(chalk.gray('  切换：/model <模型名称>  例：/model deepseek-chat'));
     console.log('');
-    console.log(chalk.gray('  \u5e38\u7528\u6a21\u578b\uff1a'));
-    const models = [
-      ['glm-5-turbo', '\u63a8\u8350\uff0c\u9f99\u867e\u5957\u9910\u652f\u6301'],
-      ['glm-4-flash',  '\u514d\u8d39\uff0c\u9002\u5408\u65e5\u5e38\u4efb\u52a1'],
-      ['glm-4-plus',   '\u4ed8\u8d39\uff0c\u80fd\u529b\u66f4\u5f3a'],
-      ['glm-5',        '\u4ed8\u8d39\uff0c\u6700\u5f3a\u80fd\u529b'],
-    ];
-    for (const [m, d] of models) {
-      const cur = m === currentModel ? chalk.green(' \u2190 \u5f53\u524d') : '';
-      console.log('    ' + chalk.cyan(m.padEnd(16)) + chalk.gray(d) + cur);
+    for (const provider of MODEL_PROVIDERS) {
+      console.log('  ' + chalk.bold.yellow(provider.name) + chalk.gray('  ' + provider.apiUrl));
+      for (const m of provider.models) {
+        const cur = m.id === currentModel ? chalk.green(' ← 当前') : '';
+        const priceStr = m.price.input === 0 ? chalk.green('免费') : chalk.gray('¥' + m.price.input + '/K入');
+        console.log('    ' + chalk.cyan(m.id.padEnd(22)) + chalk.gray(m.desc.padEnd(16)) + priceStr + cur);
+      }
+      console.log('');
     }
-    console.log('');
     return;
   }
   currentModel = newModel;
   process.env.OPENAI_MODEL = newModel;
-  console.log(chalk.gray('\n  \u6a21\u578b\u5df2\u5207\u6362\u4e3a\uff1a') + chalk.cyan(newModel) + '\n');
+  const provider = findProvider(newModel);
+  if (provider) {
+    console.log(chalk.gray('\n  模型已切换为：') + chalk.cyan(newModel) + chalk.gray(' (' + provider.name + ')'));
+    if (!process.env.OPENAI_BASE_URL) {
+      console.log(chalk.yellow('  提示：请设置 OPENAI_BASE_URL=') + chalk.cyan(provider.envBase));
+    }
+  } else {
+    console.log(chalk.gray('\n  模型已切换为：') + chalk.cyan(newModel));
+  }
+  console.log('');
 }
 
 async function handleCompact(agent) {
