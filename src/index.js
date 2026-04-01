@@ -1019,11 +1019,14 @@ async function main() {
       console.log('');
       if (toolCount > 0) {
         const s = sharedStats;
-        console.log(chalk.gray(` [${toolCount} \u6b21\u5de5\u5177\u8c03\u7528 \u00b7 \u7d2f\u8ba1\u8f93\u5165 ${s.inputTokens.toLocaleString()} tokens]`));
+        // 只有 token 统计有效时才显示（部分国产模型流式不返回 usage）
+        const tokenInfo = s.inputTokens > 0 ? ` · 累计输入 ${s.inputTokens.toLocaleString()} tokens` : '';
+        console.log(chalk.gray(` [${toolCount} 次工具调用${tokenInfo}]`));
       }
       console.log('');
 
-      sm.save(sessionId, sharedMessages, sharedStats);
+      // sm.save 加 try/catch，防止异常吞掉提示符导致终端卡死
+      try { sm.save(sessionId, sharedMessages, sharedStats); } catch (_) {}
       // 恢复提示符
       process.stdout.write(chalk.bold.green('\u276f '));
 
