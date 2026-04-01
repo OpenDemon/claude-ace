@@ -982,20 +982,7 @@ async function main() {
       if (msg.messages) sharedMessages = msg.messages;
       if (msg.stats) sharedStats = msg.stats;
 
-      if (streamedText) {
-        if (isTTY) {
-          const rawLines = streamedText.split('\n').length;
-          for (let i = 0; i < rawLines; i++) {
-            readline.clearLine(process.stdout, 0);
-            if (i < rawLines - 1) readline.moveCursor(process.stdout, 0, -1);
-          }
-          readline.cursorTo(process.stdout, 0);
-        }
-        const rendered = renderMarkdown(streamedText);
-        const indented = rendered.split('\n').map(l => ' ' + l).join('\n');
-        process.stdout.write(chalk.bold.cyan('\u25cf ACE') + chalk.gray(' \u203a ') + indented);
-      }
-
+      // 注意：流式 token 已经实时打印完毕，这里不再重新渲染，只补充换行和统计
       console.log('');
       if (toolCount > 0) {
         const s = sharedStats;

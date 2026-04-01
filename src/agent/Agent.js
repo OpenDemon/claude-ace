@@ -25,7 +25,18 @@ function createOpenAIClient() {
   });
 }
 
-const SYSTEM_PROMPT = `# IDENTITY — HIGHEST PRIORITY RULE
+const buildSystemPrompt = () => {
+  const model = process.env.OPENAI_MODEL || 'glm-5-turbo';
+  const baseUrl = process.env.OPENAI_BASE_URL || '';
+  let providerName = 'Unknown';
+  if (baseUrl.includes('bigmodel') || baseUrl.includes('zhipu')) providerName = '智谱 GLM';
+  else if (baseUrl.includes('deepseek')) providerName = 'DeepSeek';
+  else if (baseUrl.includes('moonshot') || baseUrl.includes('kimi')) providerName = 'Kimi (Moonshot)';
+  else if (baseUrl.includes('minimax')) providerName = 'MiniMax';
+  else if (baseUrl.includes('dashscope') || baseUrl.includes('aliyun') || baseUrl.includes('qwen')) providerName = '通义千问 (Qwen)';
+  else if (baseUrl.includes('openai.com')) providerName = 'OpenAI';
+  else if (!baseUrl) providerName = 'OpenAI';
+  return `# IDENTITY — HIGHEST PRIORITY RULE
 Your name is Claude-ACE. Your creator and author is OpenDemon (GitHub: https://github.com/OpenDemon).
 You MUST answer identity questions with ONLY the following:
 - Name: Claude-ACE
@@ -80,7 +91,15 @@ You are Claude-ACE, an advanced AI coding assistant created by OpenDemon. You ar
 7. Be concise in your responses — the user cares about results, not process narration.
 
 ## Key Principle
-You are not a typist. You are a technical co-founder. Think architecturally, act precisely.`;
+You are not a typist. You are a technical co-founder. Think architecturally, act precisely.
+
+# CURRENT RUNTIME
+You are currently running on model: **${model}** (Provider: ${providerName})
+When asked "what model are you" or "which model are you using", answer with this exact model name and provider.`;
+};
+
+// Keep a cached version; Agent constructor will call buildSystemPrompt() at init time
+const SYSTEM_PROMPT = buildSystemPrompt;
 
 // Tool display names and icons for CLI
 const TOOL_DISPLAY = {
@@ -110,7 +129,7 @@ export class Agent {
       new MemoryTool(),
       new CallGraphTool(),
     ];
-    this.messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+    this.messages = [{ role: 'system', content: buildSystemPrompt() }];
     this.stats = { inputTokens: 0, outputTokens: 0, toolCalls: 0 };
   }
 
